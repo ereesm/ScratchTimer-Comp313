@@ -9,6 +9,14 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.Locale;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.content.Context;
+import java.io.IOException;
+
+
 
 
 import com.google.android.material.snackbar.Snackbar;
@@ -22,7 +30,7 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
-import com.example.timer.databinding.ActivityMainBinding;
+
 
 
 import android.view.Menu;
@@ -33,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Button stopButton;
     private Button incrementButton;
+    private Button pauseButton;
     private TextView timerTextView;     // Define timerTextView
     private CountDownTimer countDownTimer;
     private long timeLeftInMilliseconds = 0; // initial val
@@ -42,7 +51,10 @@ public class MainActivity extends AppCompatActivity {
 
 
     private AppBarConfiguration appBarConfiguration;
-    private ActivityMainBinding binding;
+
+    private boolean isRingtonePlaying = false;
+    private MediaPlayer mediaPlay;
+
 
 
     @Override
@@ -51,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         startButton = findViewById(R.id.start_button);
+        pauseButton = findViewById(R.id.pause_button);
         timerTextView = findViewById(R.id.time_text_view);
         stopButton = findViewById(R.id.stop_button);
         incrementButton = findViewById(R.id.increment_button);
@@ -70,8 +83,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 stopTimer();
-                timeLeftInMilliseconds = 0;
                 updateTimer();
+            }
+        });
+
+        pauseButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                pauseTimer();
             }
         });
 
@@ -86,16 +105,24 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
-
-
+    private void resetTimer() {
+        timeLeftInMilliseconds = 0;
+        incrementCounter = 0;
+        updateTimer();
+    }
 
 
     private void startTimer() {
-        timeLeftInMilliseconds = incrementCounter * 1000;
+        long initialTimeInMiliseconds;
+        if(timeLeftInMilliseconds == 0){
+            initialTimeInMiliseconds = incrementCounter *1000;
+        }else{
+            initialTimeInMiliseconds = timeLeftInMilliseconds;
+        }
+        //timeLeftInMilliseconds = incrementCounter * 1000;
         incrementCounter = 0;
         if (countDownTimer == null) {
-            countDownTimer = new CountDownTimer(timeLeftInMilliseconds, 1000) {
+            countDownTimer = new CountDownTimer(initialTimeInMiliseconds, 1000) {
                 @Override
                 public void onTick(long millisUntilFinished) {
                     timeLeftInMilliseconds = millisUntilFinished;
@@ -105,32 +132,24 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onFinish() {
                     timerRunning = false;
-                    updateButtons();
+                    countDownTimer = null;
+                    resetTimer();
+                    playRingtone(MainActivity.this);
+
                 }
             };
         }
         countDownTimer.start();
         timerRunning = true;
-        updateButtons();
+
     }
-
-    private void updateButtons() {
-        if (timerRunning) {
-            startButton.setText("Pause");
-            incrementButton.setEnabled(true);
-            stopButton.setEnabled(true);
-        } else {
-            startButton.setText("Start");
-            incrementButton.setEnabled(false);
-            stopButton.setEnabled(false);
-        }
-    }
-
-
-
 
     private void stopTimer() {
-        countDownTimer.cancel();
+        resetTimer();
+        if(countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
         timerRunning = false;
         startButton.setText("Start");
     }
@@ -138,9 +157,10 @@ public class MainActivity extends AppCompatActivity {
     private void pauseTimer() {
         if (countDownTimer != null) {
             countDownTimer.cancel();
+            timeLeftInMilliseconds = timeLeftInMilliseconds - incrementCounter * 1000;
             countDownTimer = null;
             timerRunning = false;
-            updateButtons();
+
         }
     }
 
@@ -151,6 +171,33 @@ public class MainActivity extends AppCompatActivity {
         String timeLeftFormatted = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
         timerTextView.setText(timeLeftFormatted);
     }
+
+    private void playRingtone(Context context) {
+        if (mediaPlay !=null) {
+            mediaPlay.stop();
+            mediaPlay.release();
+        }
+            Uri defaultRingtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+            MediaPlayer mediaPlayer = new MediaPlayer();
+
+            try {
+                mediaPlayer.setDataSource(context, defaultRingtoneUri);
+                mediaPlayer.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
+                mediaPlayer.prepare();
+
+                mediaPlayer.start();
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            } catch (SecurityException e) {
+                e.printStackTrace();
+            } catch (IllegalStateException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -180,4 +227,6 @@ public class MainActivity extends AppCompatActivity {
         return NavigationUI.navigateUp(navController, appBarConfiguration)
                 || super.onSupportNavigateUp();
     }
+
+
 }
